@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Vue Color Chooser</title>
+    <style>
+
+        :root {
+            --grid-cell-size: 20px; /* default for very small screens (otherwise undefined) */
+            font-family: sans-serif;
+            --bgcolor: lightgray;
+            background-color: var(--bgcolor);
+        }
+
+        /* Scale our grid sizes to user's screen width */
+        @media (min-width: 490px) {
+            :root {
+                --grid-cell-size: 25px;
+            }
+        }
+
+        @media (min-width: 600px) {
+            :root {
+                --grid-cell-size: 30px;
+            }
+        }
+
+        @media (min-width: 800px) {
+            :root {
+                --grid-cell-size: 40px;
+            }
+        }
+
+        @media (min-width: 1000px) {
+            :root {
+                --grid-cell-size: 50px;
+            }
+        }
+
+        @media (min-width: 1200px) {
+            :root {
+                --grid-cell-size: 60px;
+            }
+        }
+
+        body {
+            margin: 10px;
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        #baseColors {
+            display: grid;
+            grid-template-columns: repeat(19, var(--grid-cell-size));
+        }
+
+        #finalColors {
+            display: inline-grid;
+            grid-template-columns: repeat(7, var(--grid-cell-size)); /* best w/odd number */
+        }
+
+        #readoutGrid {
+            display: inline-grid;
+            grid-template-columns: repeat(3, calc(var(--grid-cell-size) * 4));
+            height: calc(var(--grid-cell-size) * 6);
+            max-width: 70px; /* scroll screen instead of wrapping beneath elements to my left */
+        }
+
+        .base-el, .final-el {
+            font-size: calc(var(--grid-cell-size) / 4);
+            line-height: calc(var(--grid-cell-size) / 4);
+            /*border-radius: calc(var(--grid-cell-size) / 8); causes lockups (performance) */
+            height: calc(var(--grid-cell-size) / 1.1);
+            display: block;
+            color: white;
+            border-color: var(--bgcolor);
+            border-style: solid;
+            border-width: 2px;
+            cursor: pointer;
+            padding-left: calc(var(--grid-cell-size) / 20);
+            padding-top: calc(var(--grid-cell-size) / 20);
+        }
+
+        @keyframes blink {
+            0% {
+                border: 2px solid white;
+            }
+            100% {
+                border: 2px solid black;
+            }
+        }
+
+        /* Highlight a selected cell */
+        .selected {
+            animation: blink .6s step-start infinite alternate;
+            animation-timing-function: ease-in-out;
+            /*todo: causes lockup w/Chrome ("mousehandler timeout?") */
+            /*transform: skewY(-20deg);*/
+        }
+
+        button {
+            width: 100px;
+            height: 70px;
+            align-self: center;
+            cursor: pointer;
+            border: 3px solid gray;
+        }
+
+        button:hover,
+        button:focus {
+            background: white;
+        }
+
+    </style>
+
+    <!--<script src="https://unpkg.com/vue"></script>-->
+    <script src="https://cdn.jsdelivr.net/npm/vue@2.5.17/dist/vue.min.js"></script>
+</head>
+<body>
+
+<div id="colorChooser">
+    <h1>Vue Color Chooser <span id="vccVersion"></span></h1>
+
+    <!--BASE COLOR CHOOSER:-->
+    <b>Click to lock Base Color:</b>
+    <span :style="'color: white; background-color: rgb(' + baseRed + ','
+                                                        + baseGrn + ','
+                                                        + baseBlu + ');'">
+        {{baseRed}} {{baseGrn}} {{baseBlu}}</span>
+
+    <div id="baseColors">
+        <div class="base-el"
+             v-for="props in baseProps"
+             :id="props.ID"
+             :class="{selected:baseSelection == props.ID}"
+             v-on:mouseover="baseHover"
+             v-on:click="baseClick"
+             :style="'color: white; background-color: rgb(' + props.baseRed + ','
+                                                            + props.baseGrn + ','
+                                                            + props.baseBlu + ');'">
+            R:{{props.baseRed}}<br>G:{{props.baseGrn}}<br>B:{{props.baseBlu}}
+        </div>
+    </div>
+    <br>
+
+    <!--FINAL COLOR CHOOSER:-->
+    <b>Click to lock Final Color:</b>
+    <span :style="'color: ' + fgColor(readoutRed, readoutGrn, readoutBlu) +
+                  '; background-color: rgb(' + readoutRed + ','
+                                                         + readoutGrn + ','
+                                                         + readoutBlu + ');'">
+        {{readoutRed}} {{readoutGrn}} {{readoutBlu}}</span>
+    <br>
+    <div id="finalColors">
+        <div class="final-el"
+             v-for="props in finalProps"
+             :id="props.ID"
+             :class="{selected:finalSelection == props.ID}"
+             v-on:mouseover="finalHover"
+             v-on:click="finalClick"
+             :style="'background-color: rgb(' + props.R + ',' + props.G + ',' + props.B + ');'"
+             v-html="'R:' + props.R + '<br>G:' + props.G + '<br>B:' + props.B">
+        </div>
+    </div>
+
+    <!--FINAL READOUT AND CLIPBOARD-COPY BUTTONS:-->
+    <span id="readoutGrid">
+    <span style="text-align: right; padding: 6px"><b>Final<br>Color:</b></span>
+    <span :style="'color: ' + fgColor(readoutRed, readoutGrn, readoutBlu)
+                    + '; padding: 12px; border: 3px solid gray; background-color: rgb('
+                    + readoutRed + ',' + readoutGrn + ',' + readoutBlu + ');'"
+          v-html="'R:' + readoutRed + '<br>G:' + readoutGrn + '<br>B:' + readoutBlu"></span>
+
+        <span style="padding: 12px" v-if="clipCopied"><b>{{clipCopied}}</b> copied to clipboard.</span>
+        <span style="padding: 12px" v-else></span>
+        <span></span>
+        <button v-on:click="copyToClip(readoutRed,',',readoutGrn,',',readoutBlu)">
+            Copy <b>{{readoutRed}},{{readoutGrn}},{{readoutBlu}}</b> to clipboard</button>
+        <button v-on:click="copyToClip('#',readoutRedHex,readoutGrnHex,readoutBluHex)">
+            Copy <b>#{{readoutRedHex}}{{readoutGrnHex}}{{readoutBluHex}}</b> to clipboard</button>
+    </span>
+
+</div>
+
+<script>
+    const release = "1.0";          // "Semantic" program version for end users
+    document.getElementById("vccVersion").innerHTML = release;
+    document.title = "Vue Color Chooser " + release;
+
+    const finalStyle = window.getComputedStyle(document.getElementById("finalColors"));
+    const finalSpec = finalStyle.getPropertyValue("grid-template-columns");
+    const finalCols = finalSpec.split(/ /).length;
+    let finalCenter = (finalCols - finalCols % 2) / 2;
+
+    new Vue({
+        el: '#colorChooser',
+        data: {
+            // Initial user choice:
+            baseRed: 255,
+            baseGrn: 255,
+            baseBlu: 255,
+            // Final user choice:
+            finalRed: 255,
+            finalGrn: 255,
+            finalBlu: 255,
+            // Readouts:
+            readoutRed: 255,
+            readoutGrn: 255,
+            readoutBlu: 255,
+            readoutRedHex: 0xff,
+            readoutGrnHex: 0xff,
+            readoutBluHex: 0xff,
+            // Toggles:
+            baseLock: false,
+            finalLock: false,
+            // Selections (control CSS highlighting):
+            baseSelection: undefined,
+            finalSelection: undefined,
+            // Used in "copy to clipboard" logic:
+            clipCopied: undefined,
+        },
+
+        // The "base" grid contains a fixed set of initial colors to choose from.
+        // The "final" grid changes dynamically to colors adjacent to that of the
+        // currently selected base grid cell.  So initialize the base grid with a
+        // spectrum of colors, and initialize the final grid with the coordinates
+        // needed to calculate its colors at finalCell(), below.
+        //
+        computed: {
+            ///////////// CALCULATE BASE GRID COLORS and IDs:
+            baseProps: function () {
+                // Derive grid size from CSS:
+                const baseStyle = window.getComputedStyle(document.getElementById("baseColors"));
+                const baseSpec = baseStyle.getPropertyValue("grid-template-columns");
+                const baseCols = baseSpec.split(/ /).length - 1;
+                let baseArray = [];
+                let baseRed = 255;
+                let baseGrn = 255;
+                let baseBlu = 255;
+                let baseID = 0;
+
+                // Base rainbow grid.  Math derived from https://krazydad.com/tutorials/makecolors.php:
+                const sinFreq = .3;
+                const greenPhase = 2 * Math.PI / 3;
+                const bluePhase = 4 * Math.PI / 3;
+                const sineWidth = 127;
+                const sineCtr = 128;
+                for (let j = 0; j < baseCols; ++j, baseID++) {
+                    baseRed = Math.round(Math.sin(sinFreq * j + 0) * sineWidth + sineCtr);
+                    baseGrn = Math.round(Math.sin(sinFreq * j + greenPhase) * sineWidth + sineCtr);
+                    baseBlu = Math.round(Math.sin(sinFreq * j + bluePhase) * sineWidth + sineCtr);
+                    baseArray.push({baseRed: baseRed, baseGrn: baseGrn, baseBlu: baseBlu, ID: baseID});
+                }
+                // Add gray square:
+                baseRed = baseGrn = baseBlu = 127;
+                baseID++;
+                baseArray.push({baseRed: baseRed, baseGrn: baseGrn, baseBlu: baseBlu, ID: baseID});
+                return baseArray;
+            },
+
+            ///////////// CALCULATE FINAL COLOR GRID CELL COORDINATES & IDs:
+            finalProps: function () {
+                // Derive grid size from CSS:
+                let finalArray = [];
+                let red;
+                let grn;
+                let blu;
+                let xOffset;
+                let yOffset;
+                // red/grn/blu code adapted from Justin Meyer:
+                for (let c = 0, id = 0; c < finalCols; c++)
+                    for (let r = 0; r < finalCols; id++, r++) {
+                        xOffset = 3 - c;    // How far am I from grid center?
+                        yOffset = 3 - r;
+                        // Purely empirical way of getting a useful range:
+                        red = +this.baseRed + xOffset * 19 + yOffset * 43;
+                        grn = +this.baseGrn + xOffset * 19 + yOffset * 43;
+                        blu = +this.baseBlu + xOffset * 19 + yOffset * 43;
+                        red = red > 255 ? 255 : red < 1 ? 0 : red;
+                        grn = grn > 255 ? 255 : grn < 1 ? 0 : grn;
+                        blu = blu > 255 ? 255 : blu < 1 ? 0 : blu;
+                        finalArray.push({ID: id, R: red, G: grn, B: blu});
+                    }
+                return finalArray;
+            }
+        },
+        methods: {
+            // Set selection to id and base color from background-color of a hovered/clicked cell:
+            setBaseRGB(event) {
+                this.baseSelection = event.currentTarget.id;
+                this.finalSelection = undefined;
+                this.finalLock = false;
+                let curRGB = event.currentTarget.style.backgroundColor.slice(4, -1);
+                if (curRGB.length) {
+                    [this.baseRed, this.baseGrn, this.baseBlu] = curRGB.split(', ');
+                }
+            },
+            baseHover(event) {
+                if (!this.baseLock) this.setBaseRGB(event);
+            },
+            baseClick(event) {
+                this.baseLock = !this.baseLock;
+                this.setBaseRGB(event);
+            },
+            // Set selection to id and final color from background-color of a hovered/clicked cell:
+            setFinalRGB(event) {
+                this.finalSelection = event.currentTarget.id;
+                let curRGB = event.currentTarget.style.backgroundColor.slice(4, -1);
+                if (curRGB.length) {
+                    // Set values for readout fields:
+                    this.readoutRed = Number(curRGB.split(', ')[0]);
+                    this.readoutGrn = Number(curRGB.split(', ')[1]);
+                    this.readoutBlu = Number(curRGB.split(', ')[2]);
+                    this.readoutRedHex = this.readoutRed.toString(16).padStart(2, "0");
+                    this.readoutGrnHex = this.readoutGrn.toString(16).padStart(2, "0");
+                    this.readoutBluHex = this.readoutBlu.toString(16).padStart(2, "0");
+                }
+            },
+            finalHover(event) {
+                if (!this.finalLock) this.setFinalRGB(event);
+            },
+            finalClick(event) {
+                this.finalLock = !this.finalLock;
+                this.setFinalRGB(event);
+            },
+            fgColor(red, grn, blu) {
+                if (+red + +grn + +blu > 400) {  // '+' coerces strings to numbers
+
+                    return "black";
+                }
+                else
+                    return "white";
+            },
+            // Calculate attributes & content of a final selection grid cell:
+            finalCell(xCoord, yCoord, retType) {
+                // Compute final grid element RGB based on cell location and base RGB selection:
+                let xOffset = finalCenter - xCoord;    // How far am I from grid center?
+                let yOffset = finalCenter - yCoord;
+
+                // Purely empirical way of getting a useful range:
+                let cellRed = +this.baseRed + xOffset * 19 + yOffset * 43;
+                let cellGrn = +this.baseGrn + xOffset * 19 + yOffset * 43;
+                let cellBlu = +this.baseBlu + xOffset * 19 + yOffset * 43;
+
+                // Constrain to 1..255:
+                cellRed = cellRed > 255 ? 255 : cellRed < 1 ? 0 : cellRed;
+                cellGrn = cellGrn > 255 ? 255 : cellGrn < 1 ? 0 : cellGrn;
+                cellBlu = cellBlu > 255 ? 255 : cellBlu < 1 ? 0 : cellBlu;
+
+                switch (retType) {
+                    case 'bgStyle':
+                        return (`rgb(${cellRed},${cellGrn},${cellBlu}`);
+                        break;
+                    case 'html':
+                        return (`R:${cellRed}<br>G:${cellGrn}<br>B:${cellBlu}`);
+                        break;
+                    case 'fgStyle':
+                        return this.fgColor(cellRed, cellGrn, cellBlu);
+                        break;
+                }
+            },
+
+            // Copy argument(s) to end user system's clipboard:
+            copyToClip() {
+                let toCopy = "";
+                for (let i = 0; i < arguments.length; i++) {
+                    toCopy += arguments[i];
+                }
+                let textArea = document.createElement("textarea");
+                textArea.value = toCopy;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand("Copy");
+                textArea.remove();
+                this.clipCopied = `${toCopy}`;
+            },
+        }
+    });
+</script>
+</body>
+</html>
