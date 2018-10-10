@@ -192,7 +192,6 @@
     const finalStyle = window.getComputedStyle(document.getElementById("finalColors"));
     const finalSpec = finalStyle.getPropertyValue("grid-template-columns");
     const finalCols = finalSpec.split(/ /).length;
-    let finalCenter = (finalCols - finalCols % 2) / 2;
 
     new Vue({
         el: '#colorChooser',
@@ -332,34 +331,6 @@
                 }
                 else
                     return "white";
-            },
-            // Calculate attributes & content of a final selection grid cell:
-            finalCell(xCoord, yCoord, retType) {
-                // Compute final grid element RGB based on cell location and base RGB selection:
-                let xOffset = finalCenter - xCoord;    // How far am I from grid center?
-                let yOffset = finalCenter - yCoord;
-
-                // Purely empirical way of getting a useful range:
-                let cellRed = +this.baseRed + xOffset * 19 + yOffset * 43;
-                let cellGrn = +this.baseGrn + xOffset * 19 + yOffset * 43;
-                let cellBlu = +this.baseBlu + xOffset * 19 + yOffset * 43;
-
-                // Constrain to 1..255:
-                cellRed = cellRed > 255 ? 255 : cellRed < 1 ? 0 : cellRed;
-                cellGrn = cellGrn > 255 ? 255 : cellGrn < 1 ? 0 : cellGrn;
-                cellBlu = cellBlu > 255 ? 255 : cellBlu < 1 ? 0 : cellBlu;
-
-                switch (retType) {
-                    case 'bgStyle':
-                        return (`rgb(${cellRed},${cellGrn},${cellBlu}`);
-                        break;
-                    case 'html':
-                        return (`R:${cellRed}<br>G:${cellGrn}<br>B:${cellBlu}`);
-                        break;
-                    case 'fgStyle':
-                        return this.fgColor(cellRed, cellGrn, cellBlu);
-                        break;
-                }
             },
 
             // Copy argument(s) to end user system's clipboard:
