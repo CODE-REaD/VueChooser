@@ -160,7 +160,8 @@
              :class="{selected:finalSelection == props.ID}"
              v-on:mouseover="finalHover"
              v-on:click="finalClick"
-             :style="'background-color: rgb(' + props.R + ',' + props.G + ',' + props.B + ');'"
+             :style="'color: ' + fgColor(props.R, props.G, props.B)
+             + '; background-color: rgb(' + props.R + ',' + props.G + ',' + props.B + ');'"
              v-html="'R:' + props.R + '<br>G:' + props.G + '<br>B:' + props.B">
         </div>
     </div>
