@@ -3,117 +3,6 @@
 <head>
     <meta charset="UTF-8">
     <title>Vue Color Chooser</title>
-    <style>
-
-        :root {
-            --grid-cell-size: 20px; /* default for very small screens (otherwise undefined) */
-            font-family: sans-serif;
-            --bgcolor: lightgray;
-            background-color: var(--bgcolor);
-        }
-
-        /* Scale our grid sizes to user's screen width */
-        @media (min-width: 490px) {
-            :root {
-                --grid-cell-size: 25px;
-            }
-        }
-
-        @media (min-width: 600px) {
-            :root {
-                --grid-cell-size: 30px;
-            }
-        }
-
-        @media (min-width: 800px) {
-            :root {
-                --grid-cell-size: 40px;
-            }
-        }
-
-        @media (min-width: 1000px) {
-            :root {
-                --grid-cell-size: 50px;
-            }
-        }
-
-        @media (min-width: 1200px) {
-            :root {
-                --grid-cell-size: 60px;
-            }
-        }
-
-        body {
-            margin: 10px;
-        }
-
-        h1 {
-            text-align: center;
-        }
-
-        #baseColors {
-            display: grid;
-            grid-template-columns: repeat(19, var(--grid-cell-size));
-        }
-
-        #finalColors {
-            display: inline-grid;
-            grid-template-columns: repeat(7, var(--grid-cell-size)); /* best w/odd number */
-        }
-
-        #readoutGrid {
-            display: inline-grid;
-            grid-template-columns: repeat(3, calc(var(--grid-cell-size) * 4));
-            height: calc(var(--grid-cell-size) * 6);
-            max-width: 70px; /* scroll screen instead of wrapping beneath elements to my left */
-        }
-
-        .base-el, .final-el {
-            font-size: calc(var(--grid-cell-size) / 4);
-            line-height: calc(var(--grid-cell-size) / 4);
-            /*border-radius: calc(var(--grid-cell-size) / 8); causes lockups (performance) */
-            height: calc(var(--grid-cell-size) / 1.1);
-            display: block;
-            color: white;
-            border-color: var(--bgcolor);
-            border-style: solid;
-            border-width: 2px;
-            cursor: pointer;
-            padding-left: calc(var(--grid-cell-size) / 20);
-            padding-top: calc(var(--grid-cell-size) / 20);
-        }
-
-        @keyframes blink {
-            0% {
-                border: 2px solid white;
-            }
-            100% {
-                border: 2px solid black;
-            }
-        }
-
-        /* Highlight a selected cell */
-        .selected {
-            animation: blink .6s step-start infinite alternate;
-            animation-timing-function: ease-in-out;
-            /*todo: causes lockup w/Chrome ("mousehandler timeout?") */
-            /*transform: skewY(-20deg);*/
-        }
-
-        button {
-            width: 100px;
-            height: 70px;
-            align-self: center;
-            cursor: pointer;
-            border: 3px solid gray;
-        }
-
-        button:hover,
-        button:focus {
-            background: white;
-        }
-
-    </style>
 
     <!--<script src="https://unpkg.com/vue"></script>-->
     <script src="https://cdn.jsdelivr.net/npm/vue@2.5.17/dist/vue.min.js"></script>
@@ -121,7 +10,7 @@
 <body>
 
 <div id="colorChooser">
-    <h1>Vue Color Chooser <span id="vccVersion"></span></h1>
+    <h1>Vue Color Chooser {{release}}</h1>
 
     <!--BASE COLOR CHOOSER:-->
     <b>Click to lock Base Color:</b>
@@ -167,35 +56,152 @@
     </div>
 
     <!--FINAL READOUT AND CLIPBOARD-COPY BUTTONS:-->
-    <span id="readoutGrid">
+    <span id="readout-grid">
     <span style="text-align: right; padding: 6px"><b>Final<br>Color:</b></span>
     <span :style="'color: ' + fgColor(readoutRed, readoutGrn, readoutBlu)
                     + '; padding: 12px; border: 3px solid gray; background-color: rgb('
                     + readoutRed + ',' + readoutGrn + ',' + readoutBlu + ');'"
-          v-html="'R:' + readoutRed + '<br>G:' + readoutGrn + '<br>B:' + readoutBlu"></span>
-
-        <span style="padding: 12px" v-if="clipCopied"><b>{{clipCopied}}</b> copied to clipboard.</span>
-        <span style="padding: 12px" v-else></span>
-        <span></span>
-        <button v-on:click="copyToClip(readoutRed,',',readoutGrn,',',readoutBlu)">
-            Copy <b>{{readoutRed}},{{readoutGrn}},{{readoutBlu}}</b> to clipboard</button>
-        <button v-on:click="copyToClip('#',readoutRedHex,readoutGrnHex,readoutBluHex)">
-            Copy <b>#{{readoutRedHex}}{{readoutGrnHex}}{{readoutBluHex}}</b> to clipboard</button>
+          v-html="'R:' + readoutRed + '<br>G:' + readoutGrn + '<br>B:' + readoutBlu">
+    </span>
+    <span></span>
+    <span></span>
+    <span></span>
+    <button v-on:click="copyToClip(readoutRed,',',readoutGrn,',',readoutBlu)">
+        Copy <b>{{readoutRed}},{{readoutGrn}},{{readoutBlu}}</b> to clipboard</button>
+    <span></span>
+    <span></span>
+    <span></span>
+    <button v-on:click="copyToClip('#',readoutRedHex,readoutGrnHex,readoutBluHex)">
+        Copy <b>#{{readoutRedHex}}{{readoutGrnHex}}{{readoutBluHex}}</b> to clipboard</button>
+    <span></span>
+    <span></span>
+    <span></span>
+    <span style="padding: 12px" v-if="clipCopied"><b>{{clipCopied}}</b> copied to clipboard.</span>
+    <span style="padding: 12px" v-else></span>
     </span>
 
 </div>
 
 <script>
-    const release = "1.1";          // "Semantic" program version for end users
-    document.getElementById("vccVersion").innerHTML = release;
+    "use strict";
+    const release = "2.0";          // "Semantic" program version for end users
     document.title = "Vue Color Chooser " + release;
 
-    const finalStyle = window.getComputedStyle(document.getElementById("finalColors"));
-    const finalSpec = finalStyle.getPropertyValue("grid-template-columns");
-    const finalCols = finalSpec.split(/ /).length;
+    ///// Set up responsive sizing of all elements by executing our CSS via JavaScript:
+
+    const gridCellSize = 45;
+    const bodyMargin = 40;
+    let baseColSpec;
+    let finalColSpec;
+
+    setMySize();
+    window.addEventListener('resize', setMySize);
+
+    function setMySize() {
+        const myWidth = document.documentElement.clientWidth - bodyMargin * 2; // account for margins
+        const myHeight = document.documentElement.clientHeight - bodyMargin * 2; // margins + other elements
+        const finalWidth = myWidth - 135;
+        const finalHeight = myHeight - 175;
+        const finalMinDim = finalWidth < finalHeight ? finalWidth : finalHeight;
+        baseColSpec = Math.round(myWidth / gridCellSize);
+        finalColSpec = Math.round(finalMinDim / gridCellSize);
+
+        /// Write style sheet from here so we can use its variables in our JavaScript:
+        let styleEl = document.getElementById("ccStyles"); // Avoid appending multiple <style>s
+        if (styleEl)
+            styleEl.parentNode.removeChild(styleEl);
+        const ccStyleSheet = document.createElement('style');
+        ccStyleSheet.id = "ccStyles";
+        ccStyleSheet.innerHTML = `
+:root {
+    font-family: sans-serif;
+    --bgcolor: lightgray;
+    background-color: var(--bgcolor);
+}
+
+body {
+    margin: ${bodyMargin}px;
+}
+
+h1 {
+    text-align: center;
+}
+
+#baseColors {
+    display: grid;
+    width: fit-content;
+    grid-template-columns: repeat(${baseColSpec}, ${gridCellSize}px);
+}
+
+#finalColors {
+    display: inline-grid;
+    width: fit-content;
+    grid-template-columns: repeat(${finalColSpec}, ${gridCellSize}px); /* best w/odd number */
+}
+
+#readout-grid {
+    display: inline-grid;
+    grid-template-columns: ${gridCellSize * 1.2}px ${gridCellSize * 2}px;
+    max-width: ${gridCellSize * 2}px; /* scroll screen instead of wrapping beneath elements to my left */
+}
+
+.base-el, .final-el {
+    border-color: var(--bgcolor);
+    border-style: solid;
+    border-width: 2px;
+}
+
+.base-el, .final-el, .selected {
+    font-size: ${gridCellSize / 4}px;
+    line-height: ${gridCellSize / 4}px;
+    /*border-radius: ${gridCellSize / 8}px; causes lockups (performance) */
+    height: ${gridCellSize / 1.1}px;
+    display: block;
+    cursor: pointer;
+    padding-left: ${gridCellSize / 20}px;
+    padding-top: ${gridCellSize / 20}px;
+}
+
+@keyframes blink {
+    0% {
+        border: 2px solid white;
+    }
+    100% {
+        border: 2px solid black;
+    }
+}
+
+/* Highlight a selected cell */
+.selected {
+    animation: blink .6s step-start infinite alternate;
+    animation-timing-function: ease-in-out;
+    /*todo: causes lockup w/Chrome ("mousehandler timeout?") */
+    /*transform: skewY(-20deg);*/
+}
+
+button {
+    height: ${gridCellSize * 2}px;
+    width: ${gridCellSize * 3}px;
+    font-size: ${gridCellSize / 3}px;
+    line-height: ${gridCellSize / 3}px;
+    align-self: center;
+    cursor: pointer;
+    border: 3px solid gray;
+}
+
+button:hover,
+button:focus {
+    background: white;
+}
+`;
+        document.head.appendChild(ccStyleSheet);
+    }
 
     new Vue({
         el: '#colorChooser',
+        mounted() {
+            window.addEventListener('resize', this.onResize);
+        },
         data: {
             // Initial user choice:
             baseRed: 255,
@@ -220,6 +226,8 @@
             finalSelection: undefined,
             // Used in "copy to clipboard" logic:
             clipCopied: undefined,
+            baseCols: baseColSpec,
+            finalCols: finalColSpec,
         },
 
         // The "base" grid contains a fixed set of initial colors to choose from.
@@ -231,10 +239,6 @@
         computed: {
             ///////////// CALCULATE BASE GRID COLORS and IDs:
             baseProps: function () {
-                // Derive grid size from CSS:
-                const baseStyle = window.getComputedStyle(document.getElementById("baseColors"));
-                const baseSpec = baseStyle.getPropertyValue("grid-template-columns");
-                const baseCols = baseSpec.split(/ /).length - 1;
                 let baseArray = [];
                 let baseRed = 255;
                 let baseGrn = 255;
@@ -242,12 +246,13 @@
                 let baseID = 0;
 
                 // Base rainbow grid.  Math derived from https://krazydad.com/tutorials/makecolors.php:
-                const sinFreq = .3;
+                // const sinFreq = .3;
+                const sinFreq = 6 / this.baseCols;
                 const greenPhase = 2 * Math.PI / 3;
                 const bluePhase = 4 * Math.PI / 3;
                 const sineWidth = 127;
                 const sineCtr = 128;
-                for (let j = 0; j < baseCols; ++j, baseID++) {
+                for (let j = 0; j < this.baseCols - 1; ++j, baseID++) {
                     baseRed = Math.round(Math.sin(sinFreq * j + 0) * sineWidth + sineCtr);
                     baseGrn = Math.round(Math.sin(sinFreq * j + greenPhase) * sineWidth + sineCtr);
                     baseBlu = Math.round(Math.sin(sinFreq * j + bluePhase) * sineWidth + sineCtr);
@@ -260,7 +265,7 @@
                 return baseArray;
             },
 
-            ///////////// CALCULATE FINAL COLOR GRID CELL COORDINATES & IDs:
+            ///////////// CALCULATE FINAL COLOR GRID CELL COLORS & IDs:
             finalProps: function () {
                 // Derive grid size from CSS:
                 let finalArray = [];
@@ -269,24 +274,33 @@
                 let blu;
                 let xOffset;
                 let yOffset;
+
+                let xSpread = Math.round(136 / this.finalCols);
+                let ySpread = Math.round(154 / this.finalCols);
+                let periphCols = Math.trunc(this.finalCols / 2);
                 // red/grn/blu code adapted from Justin Meyer:
-                for (let c = 0, id = 0; c < finalCols; c++)
-                    for (let r = 0; r < finalCols; id++, r++) {
-                        xOffset = 3 - c;    // How far am I from grid center?
-                        yOffset = 3 - r;
+                for (let c = 0, id = 0; c < this.finalCols; c++) {
+                    for (let r = 0; r < this.finalCols; id++, r++) {
+                        xOffset = periphCols - c;    // How far am I from grid center?
+                        yOffset = periphCols - r;
                         // Purely empirical way of getting a useful range:
-                        red = +this.baseRed + xOffset * 19 + yOffset * 43;
-                        grn = +this.baseGrn + xOffset * 19 + yOffset * 43;
-                        blu = +this.baseBlu + xOffset * 19 + yOffset * 43;
+                        red = +this.baseRed + xOffset * xSpread + yOffset * ySpread;
+                        grn = +this.baseGrn + xOffset * xSpread + yOffset * ySpread;
+                        blu = +this.baseBlu + xOffset * xSpread + yOffset * ySpread;
                         red = red > 255 ? 255 : red < 1 ? 0 : red;
                         grn = grn > 255 ? 255 : grn < 1 ? 0 : grn;
                         blu = blu > 255 ? 255 : blu < 1 ? 0 : blu;
                         finalArray.push({ID: id, R: red, G: grn, B: blu});
                     }
+                }
                 return finalArray;
             }
         },
         methods: {
+            onResize(event) {
+                this.baseCols = baseColSpec;
+                this.finalCols = finalColSpec;
+            },
             // Set selection to id and base color from background-color of a hovered/clicked cell:
             setBaseRGB(event) {
                 this.baseSelection = event.currentTarget.id;
@@ -303,6 +317,7 @@
             baseClick(event) {
                 this.baseLock = !this.baseLock;
                 this.setBaseRGB(event);
+                // this.baseCols = baseColSpec; // trigger refresh
             },
             // Set selection to id and final color from background-color of a hovered/clicked cell:
             setFinalRGB(event) {
@@ -327,7 +342,6 @@
             },
             fgColor(red, grn, blu) {
                 if (+red + +grn + +blu > 400) {  // '+' coerces strings to numbers
-
                     return "black";
                 }
                 else
