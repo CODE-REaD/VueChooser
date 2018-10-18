@@ -1,7 +1,7 @@
 # VueChooser
 Revised Vue Color Chooser.
 
-This web app is running at http://vue-colors2.code-read.com.
+This web app is running at http://vue-colors.code-read.com.
 
 Same application as [CanJS-ColorChooser](https://github.com/CODE-REaD/CanJS-ColorChooser), but coded in Vue for comparison.
 
