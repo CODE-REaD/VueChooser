@@ -6,11 +6,12 @@
 
     <!--<script src="https://unpkg.com/vue"></script>-->
     <script src="https://cdn.jsdelivr.net/npm/vue@2.5.17/dist/vue.min.js"></script>
+    <!--<script src="https://cdn.jsdelivr.net/npm/vue@2.5.17/dist/vue.js"></script>-->
 </head>
 <body>
 
 <div id="colorChooser">
-    <h1>Vue Color Chooser {{release}}</h1>
+    <h1>Vue Color Chooser {{vueRelease}}</h1>
 
     <!--BASE COLOR CHOOSER:-->
     <b>Click to lock Base Color:</b>
@@ -78,17 +79,36 @@
     <span></span>
     <span style="padding: 12px" v-if="clipCopied"><b>{{clipCopied}}</b> copied to clipboard.</span>
     <span style="padding: 12px" v-else></span>
+    <span></span>
+    <span></span>
+    <span></span>
+    <button v-on:click="toggleDemo()">
+        Turn demo {{demoButton}}</button>
     </span>
-
 </div>
 
 <script>
     "use strict";
-    const release = "2.0";          // "Semantic" program version for end users
+    const release = "2.1";          // "Semantic" program version for end users
     document.title = "Vue Color Chooser " + release;
 
-    ///// Set up responsive sizing of all elements by executing our CSS via JavaScript:
+    // Toggles:
+    let baseLock = false;
+    let finalLock = false;
 
+    // Demo mode:
+    let doDemo = false;  // todo: use button and/or url to set this
+    let demoRefreshing = false;
+    let demoBaseArray = [];  // Copy of baseArray For "demo" mode operation
+    let demoSpeed = 10; // ms delay during demo cycles
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('demo')) {
+        if (urlParams.get('demo') === 'true')
+            doDemo = true;
+    }
+
+    ///// Set up responsive sizing of all elements by executing our CSS via JavaScript:
+    // todo: unstyled page flashes at startup.
     const gridCellSize = 45;
     const bodyMargin = 40;
     let baseColSpec;
@@ -106,7 +126,7 @@
         baseColSpec = Math.round(myWidth / gridCellSize);
         finalColSpec = Math.round(finalMinDim / gridCellSize);
 
-        /// Write style sheet from here so we can use its variables in our JavaScript:
+        /// Write style sheet here so we can share its variables with JavaScript:
         let styleEl = document.getElementById("ccStyles"); // Avoid appending multiple <style>s
         if (styleEl)
             styleEl.parentNode.removeChild(styleEl);
@@ -164,17 +184,18 @@ h1 {
 
 @keyframes blink {
     0% {
-        border: 2px solid white;
+        border: 2px inset white;
     }
     100% {
-        border: 2px solid black;
+        border: 2px outset white;
     }
 }
 
 /* Highlight a selected cell */
 .selected {
     animation: blink .6s step-start infinite alternate;
-    animation-timing-function: ease-in-out;
+    // animation-timing-function: ease-in-out;
+    animation-timing-function: ease;
     /*todo: causes lockup w/Chrome ("mousehandler timeout?") */
     /*transform: skewY(-20deg);*/
 }
@@ -201,8 +222,13 @@ button:focus {
         el: '#colorChooser',
         mounted() {
             window.addEventListener('resize', this.onResize);
+            if (doDemo) {
+                this.demoButton = "off";
+                this.runDemo();  // Kick off the demo
+            }
         },
         data: {
+            vueRelease: release,
             // Initial user choice:
             baseRed: 255,
             baseGrn: 255,
@@ -218,16 +244,46 @@ button:focus {
             readoutRedHex: 0xff,
             readoutGrnHex: 0xff,
             readoutBluHex: 0xff,
-            // Toggles:
-            baseLock: false,
-            finalLock: false,
             // Selections (control CSS highlighting):
             baseSelection: undefined,
             finalSelection: undefined,
             // Used in "copy to clipboard" logic:
             clipCopied: undefined,
+
+            demoStat: doDemo,
+            demoButton: (this.demoStat) ? "off" : "on",
+
+            // Stateful in case of resize event:
             baseCols: baseColSpec,
             finalCols: finalColSpec,
+
+            finalArray: [], // stateful so we can watch it for demo mode
+        },
+        watch: {
+            // Change to finalArray triggers change to final selection during demo:
+            finalArray() {
+                if (doDemo) {
+                    let nextFinalEl;
+                    const finalCellCt = this.finalCols * this.finalCols;
+
+                    do
+                        nextFinalEl = this.finalArray[Math.trunc(Math.random() * finalCellCt)];
+                    while (nextFinalEl.ID === this.finalSelection); // Force new random location
+
+                    // todo: D.R.Y.:
+                    this.readoutRed = nextFinalEl.R;
+                    this.readoutGrn = nextFinalEl.G;
+                    this.readoutBlu = nextFinalEl.B;
+                    this.readoutRedHex = this.readoutRed.toString(16).padStart(2, "0");
+                    this.readoutGrnHex = this.readoutGrn.toString(16).padStart(2, "0");
+                    this.readoutBluHex = this.readoutBlu.toString(16).padStart(2, "0");
+                    this.finalSelection = nextFinalEl.ID;
+                }
+            },
+            // Change to finalSelection triggers change to finalArray during demo:
+            finalSelection() {
+                doDemo && this.runDemo();
+            }
         },
 
         // The "base" grid contains a fixed set of initial colors to choose from.
@@ -240,35 +296,35 @@ button:focus {
             ///////////// CALCULATE BASE GRID COLORS and IDs:
             baseProps: function () {
                 let baseArray = [];
-                let baseRed = 255;
-                let baseGrn = 255;
-                let baseBlu = 255;
+                let bpRed = 255;
+                let bpGrn = 255;
+                let bpBlu = 255;
                 let baseID = 0;
 
                 // Base rainbow grid.  Math derived from https://krazydad.com/tutorials/makecolors.php:
-                // const sinFreq = .3;
                 const sinFreq = 6 / this.baseCols;
                 const greenPhase = 2 * Math.PI / 3;
                 const bluePhase = 4 * Math.PI / 3;
                 const sineWidth = 127;
                 const sineCtr = 128;
                 for (let j = 0; j < this.baseCols - 1; ++j, baseID++) {
-                    baseRed = Math.round(Math.sin(sinFreq * j + 0) * sineWidth + sineCtr);
-                    baseGrn = Math.round(Math.sin(sinFreq * j + greenPhase) * sineWidth + sineCtr);
-                    baseBlu = Math.round(Math.sin(sinFreq * j + bluePhase) * sineWidth + sineCtr);
-                    baseArray.push({baseRed: baseRed, baseGrn: baseGrn, baseBlu: baseBlu, ID: baseID});
+                    bpRed = Math.round(Math.sin(sinFreq * j + 0) * sineWidth + sineCtr);
+                    bpGrn = Math.round(Math.sin(sinFreq * j + greenPhase) * sineWidth + sineCtr);
+                    bpBlu = Math.round(Math.sin(sinFreq * j + bluePhase) * sineWidth + sineCtr);
+                    baseArray.push({baseRed: bpRed, baseGrn: bpGrn, baseBlu: bpBlu, ID: baseID});
                 }
                 // Add gray square:
-                baseRed = baseGrn = baseBlu = 127;
+                bpRed = bpGrn = bpBlu = 127;
                 baseID++;
-                baseArray.push({baseRed: baseRed, baseGrn: baseGrn, baseBlu: baseBlu, ID: baseID});
+                baseArray.push({baseRed: bpRed, baseGrn: bpGrn, baseBlu: bpBlu, ID: baseID});
+                demoBaseArray = baseArray;
                 return baseArray;
             },
 
             ///////////// CALCULATE FINAL COLOR GRID CELL COLORS & IDs:
             finalProps: function () {
                 // Derive grid size from CSS:
-                let finalArray = [];
+                this.finalArray = [];
                 let red;
                 let grn;
                 let blu;
@@ -290,37 +346,58 @@ button:focus {
                         red = red > 255 ? 255 : red < 1 ? 0 : red;
                         grn = grn > 255 ? 255 : grn < 1 ? 0 : grn;
                         blu = blu > 255 ? 255 : blu < 1 ? 0 : blu;
-                        finalArray.push({ID: id, R: red, G: grn, B: blu});
+                        this.finalArray.push({ID: id, R: red, G: grn, B: blu});
                     }
                 }
-                return finalArray;
+                // this.demoFinalArray = finalArray;
+                return this.finalArray;
             }
         },
         methods: {
+            runDemo() {
+                // console.log(`runDemo called.`);
+                if (demoRefreshing) return;
+                demoRefreshing = true;
+                let nextBaseEl;
+
+                do
+                    nextBaseEl = demoBaseArray[Math.trunc(Math.random() * baseColSpec)];
+                while (nextBaseEl.ID === this.baseSelection); // Force new random location
+
+                setTimeout(() => {
+                    this.baseRed = nextBaseEl.baseRed;
+                    this.baseGrn = nextBaseEl.baseGrn;
+                    this.baseBlu = nextBaseEl.baseBlu;
+                    this.baseSelection = nextBaseEl.ID;
+                    demoRefreshing = false;
+                }, demoSpeed);
+            },
+            // Our window was resized, so trigger a render:
             onResize(event) {
                 this.baseCols = baseColSpec;
                 this.finalCols = finalColSpec;
             },
             // Set selection to id and base color from background-color of a hovered/clicked cell:
             setBaseRGB(event) {
+                if (doDemo) return;
                 this.baseSelection = event.currentTarget.id;
                 this.finalSelection = undefined;
-                this.finalLock = false;
+                finalLock = false;
                 let curRGB = event.currentTarget.style.backgroundColor.slice(4, -1);
                 if (curRGB.length) {
                     [this.baseRed, this.baseGrn, this.baseBlu] = curRGB.split(', ');
                 }
             },
             baseHover(event) {
-                if (!this.baseLock) this.setBaseRGB(event);
+                if (!baseLock) this.setBaseRGB(event);
             },
             baseClick(event) {
-                this.baseLock = !this.baseLock;
+                baseLock = !baseLock;
                 this.setBaseRGB(event);
-                // this.baseCols = baseColSpec; // trigger refresh
             },
             // Set selection to id and final color from background-color of a hovered/clicked cell:
             setFinalRGB(event) {
+                if (doDemo) return;
                 this.finalSelection = event.currentTarget.id;
                 let curRGB = event.currentTarget.style.backgroundColor.slice(4, -1);
                 if (curRGB.length) {
@@ -334,10 +411,10 @@ button:focus {
                 }
             },
             finalHover(event) {
-                if (!this.finalLock) this.setFinalRGB(event);
+                if (!finalLock) this.setFinalRGB(event);
             },
             finalClick(event) {
-                this.finalLock = !this.finalLock;
+                finalLock = !finalLock;
                 this.setFinalRGB(event);
             },
             fgColor(red, grn, blu) {
@@ -362,6 +439,16 @@ button:focus {
                 textArea.remove();
                 this.clipCopied = `${toCopy}`;
             },
+            // todo: when we stop demo final selection is from previous grid.
+            toggleDemo() {
+                doDemo = !doDemo;
+                if (doDemo) {
+                    this.demoButton = "off";
+                    this.runDemo();     // Kick off demo
+                } else {
+                    this.demoButton = "on";
+                }
+            }
         }
     });
 </script>
