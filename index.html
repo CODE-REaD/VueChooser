@@ -78,18 +78,24 @@
     <span></span>
     <span></span>
     <span style="padding: 12px" v-if="clipCopied"><b>{{clipCopied}}</b> copied to clipboard.</span>
-    <span style="padding: 12px" v-else></span>
+    <span style="padding: 12px" v-else><br><br><br></span>
     <span></span>
     <span></span>
     <span></span>
-    <button v-on:click="toggleDemo()">
-        Turn demo {{demoButton}}</button>
+        <button v-on:click="toggleDemo()">
+        Demo {{demoButton}}</button>
+    <span></span>
+    <span></span>
+    <span></span>
+    <span style="padding: 12px" v-if="framesPerSec">Average frames/second:
+        <b>{{framesPerSec}}@{{finalCols}}x{{finalCols}}</b></span>
+    <span style="padding: 12px" v-else><br><br><br></span>
     </span>
 </div>
 
 <script>
     "use strict";
-    const release = "2.1";          // "Semantic" program version for end users
+    const release = "2.3";          // "Semantic" program version for end users
     document.title = "Vue Color Chooser " + release;
 
     // Toggles:
@@ -97,7 +103,10 @@
     let finalLock = false;
 
     // Demo mode:
-    let doDemo = false;  // todo: use button and/or url to set this
+    let demoSecs = 0;   // For frames/sec readout
+    let frameCount = 0;
+
+    let doDemo = false;
     let demoRefreshing = false;
     let demoBaseArray = [];  // Copy of baseArray For "demo" mode operation
     let demoSpeed = 10; // ms delay during demo cycles
@@ -125,6 +134,10 @@
         const finalMinDim = finalWidth < finalHeight ? finalWidth : finalHeight;
         baseColSpec = Math.round(myWidth / gridCellSize);
         finalColSpec = Math.round(finalMinDim / gridCellSize);
+        if (finalColSpec < 2) finalColSpec = 2;
+        demoSecs = 0;
+        frameCount = 0;
+
 
         /// Write style sheet here so we can share its variables with JavaScript:
         let styleEl = document.getElementById("ccStyles"); // Avoid appending multiple <style>s
@@ -214,6 +227,11 @@ button:hover,
 button:focus {
     background: white;
 }
+
+button:active {
+  transform: translate(4px, 4px);
+}
+
 `;
         document.head.appendChild(ccStyleSheet);
     }
@@ -223,41 +241,44 @@ button:focus {
         mounted() {
             window.addEventListener('resize', this.onResize);
             if (doDemo) {
-                this.demoButton = "off";
+                this.demoButton = "OFF";
+                this.clockDemo();
                 this.runDemo();  // Kick off the demo
+            } else {
+                this.demoButton = "ON";
             }
         },
         data: {
             vueRelease: release,
             // Initial user choice:
-            baseRed: 255,
-            baseGrn: 255,
-            baseBlu: 255,
+            baseRed: 127,
+            baseGrn: 127,
+            baseBlu: 127,
             // Final user choice:
-            finalRed: 255,
-            finalGrn: 255,
-            finalBlu: 255,
+            finalRed: 127,
+            finalGrn: 127,
+            finalBlu: 127,
             // Readouts:
-            readoutRed: 255,
-            readoutGrn: 255,
-            readoutBlu: 255,
-            readoutRedHex: 0xff,
-            readoutGrnHex: 0xff,
-            readoutBluHex: 0xff,
+            readoutRed: 127,
+            readoutGrn: 127,
+            readoutBlu: 127,
+            readoutRedHex: "7f",
+            readoutGrnHex: "7f",
+            readoutBluHex: "7f",
             // Selections (control CSS highlighting):
             baseSelection: undefined,
             finalSelection: undefined,
             // Used in "copy to clipboard" logic:
             clipCopied: undefined,
-
-            demoStat: doDemo,
-            demoButton: (this.demoStat) ? "off" : "on",
+            demoButton: undefined,
 
             // Stateful in case of resize event:
             baseCols: baseColSpec,
             finalCols: finalColSpec,
 
-            finalArray: [], // stateful so we can watch it for demo mode
+            finalArray: [], // stateful so we can watch it during demo mode
+
+            framesPerSec: undefined,
         },
         watch: {
             // Change to finalArray triggers change to final selection during demo:
@@ -278,6 +299,7 @@ button:focus {
                     this.readoutGrnHex = this.readoutGrn.toString(16).padStart(2, "0");
                     this.readoutBluHex = this.readoutBlu.toString(16).padStart(2, "0");
                     this.finalSelection = nextFinalEl.ID;
+                    frameCount++;
                 }
             },
             // Change to finalSelection triggers change to finalArray during demo:
@@ -358,6 +380,7 @@ button:focus {
                 // console.log(`runDemo called.`);
                 if (demoRefreshing) return;
                 demoRefreshing = true;
+
                 let nextBaseEl;
 
                 do
@@ -365,12 +388,21 @@ button:focus {
                 while (nextBaseEl.ID === this.baseSelection); // Force new random location
 
                 setTimeout(() => {
-                    this.baseRed = nextBaseEl.baseRed;
-                    this.baseGrn = nextBaseEl.baseGrn;
-                    this.baseBlu = nextBaseEl.baseBlu;
-                    this.baseSelection = nextBaseEl.ID;
+                    if (doDemo) {   // Test flag here since it may have been set during timeout
+                        this.baseRed = nextBaseEl.baseRed;
+                        this.baseGrn = nextBaseEl.baseGrn;
+                        this.baseBlu = nextBaseEl.baseBlu;
+                        this.baseSelection = nextBaseEl.ID;
+                    }
                     demoRefreshing = false;
                 }, demoSpeed);
+            },
+            clockDemo() {
+                setTimeout(() => {
+                    this.framesPerSec = (frameCount / ++demoSecs).toFixed(2); // Seconds we have been running this demo
+                    if (doDemo)
+                        this.clockDemo();
+                }, 1000);
             },
             // Our window was resized, so trigger a render:
             onResize(event) {
@@ -424,13 +456,13 @@ button:focus {
                 else
                     return "white";
             },
-
             // Copy argument(s) to end user system's clipboard:
             copyToClip() {
                 let toCopy = "";
                 for (let i = 0; i < arguments.length; i++) {
                     toCopy += arguments[i];
                 }
+                // Note: this has the confusing side-effect of de-focusing any active button:
                 let textArea = document.createElement("textarea");
                 textArea.value = toCopy;
                 document.body.appendChild(textArea);
@@ -439,16 +471,19 @@ button:focus {
                 textArea.remove();
                 this.clipCopied = `${toCopy}`;
             },
-            // todo: when we stop demo final selection is from previous grid.
-            toggleDemo() {
+                toggleDemo() {
                 doDemo = !doDemo;
                 if (doDemo) {
-                    this.demoButton = "off";
+                    demoRefreshing = false;
+                    this.demoButton = "OFF";
+                    this.clockDemo();
                     this.runDemo();     // Kick off demo
                 } else {
-                    this.demoButton = "on";
+                    this.demoButton = "ON";
+                    this.frameCount = 0;
+                    this.demoSecs = 0;
                 }
-            }
+            },
         }
     });
 </script>
